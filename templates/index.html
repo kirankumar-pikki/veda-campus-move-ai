@@ -1,0 +1,174 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>CampusMove AI</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <div class="app-shell">
+    <header class="topbar">
+      <div class="brand">
+        <div class="logo">CM</div>
+        <div>
+          <h1>CampusMove AI</h1>
+          <p>Intelligent campus transportation agent</p>
+        </div>
+      </div>
+      <div class="live-pill"><span></span> LIVE DEMO DATA</div>
+    </header>
+
+    <main>
+      <section class="hero">
+        <div>
+          <div class="eyebrow">AI TRANSPORT OPERATIONS</div>
+          <h2>Ask your campus transport agent.</h2>
+          <p>Get bus locations, ETAs, seat availability, disruptions, demand analysis and operational recommendations from one interface.</p>
+        </div>
+      </section>
+
+      <section class="dashboard">
+        <div class="panel chat-panel">
+          <div class="panel-head">
+            <div>
+              <h3>Transport Assistant</h3>
+              <p>Natural language → plan → tools → decision</p>
+            </div>
+            <button class="clear-btn" id="clearBtn">Clear</button>
+          </div>
+
+          <div id="messages" class="messages">
+            <div class="message agent">
+              <div class="avatar">AI</div>
+              <div class="bubble">
+                <strong>CampusMove</strong>
+                <p>Hi! Ask me something like “Which bus should I take from East Hostel right now?” or “Where is BUS-302 and is it safe?”</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="composer">
+            <textarea id="question" rows="2" placeholder="Ask about buses, seats, delays, traffic, demand, safety..."></textarea>
+            <button id="sendBtn">Ask Agent <span>→</span></button>
+          </div>
+
+          <div class="suggestions">
+            <button data-q="Which buses are running right now and which should I take to Main Campus?">Best bus now</button>
+            <button data-q="Where is BUS-302 and when will it reach its next stop?">Track BUS-302</button>
+            <button data-q="Which routes are overcrowded right now and where is spare capacity?">Analyze demand</button>
+            <button data-q="How should buses be redistributed right now?">Redistribute buses</button>
+          </div>
+        </div>
+
+        <aside class="panel how-panel">
+          <div class="panel-head">
+            <div>
+              <h3>Agent workflow</h3>
+              <p>What happens behind the scenes</p>
+            </div>
+          </div>
+          <div class="flow">
+            <div><b>01</b><span>Understand request</span></div>
+            <i>↓</i>
+            <div><b>02</b><span>Choose transport tools</span></div>
+            <i>↓</i>
+            <div><b>03</b><span>Read live data</span></div>
+            <i>↓</i>
+            <div><b>04</b><span>Compare & reason</span></div>
+            <i>↓</i>
+            <div><b>05</b><span>Recommend action</span></div>
+          </div>
+          <div class="status-card">
+            <div class="status-dot"></div>
+            <div>
+              <strong>Backend connected</strong>
+              <p>Python + Flask + modular tools</p>
+            </div>
+          </div>
+        </aside>
+      </section>
+    </main>
+
+    <footer>
+      <span>CampusMove AI · Hackathon prototype</span>
+      <span>Demo data simulates GPS, occupancy & operations feeds</span>
+    </footer>
+  </div>
+
+<script>
+const messages = document.getElementById("messages");
+const question = document.getElementById("question");
+const sendBtn = document.getElementById("sendBtn");
+
+function addMessage(role, text, meta="") {
+  const wrap = document.createElement("div");
+  wrap.className = "message " + role;
+  const avatar = role === "user" ? "YOU" : "AI";
+  wrap.innerHTML = `<div class="avatar">${avatar}</div><div class="bubble">${role === "agent" ? "<strong>CampusMove</strong>" : ""}<p></p>${meta ? `<small>${meta}</small>` : ""}</div>`;
+  wrap.querySelector("p").textContent = text;
+  messages.appendChild(wrap);
+  messages.scrollTop = messages.scrollHeight;
+}
+
+function addLoading() {
+  const el = document.createElement("div");
+  el.id = "loading";
+  el.className = "message agent";
+  el.innerHTML = `<div class="avatar">AI</div><div class="bubble"><strong>CampusMove</strong><div class="typing"><span></span><span></span><span></span></div></div>`;
+  messages.appendChild(el);
+  messages.scrollTop = messages.scrollHeight;
+}
+
+async function askAgent() {
+  const text = question.value.trim();
+  if (!text || sendBtn.disabled) return;
+  addMessage("user", text);
+  question.value = "";
+  sendBtn.disabled = true;
+  sendBtn.innerHTML = "Thinking...";
+  addLoading();
+
+  try {
+    const res = await fetch("/api/ask", {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({message: text})
+    });
+    const data = await res.json();
+    document.getElementById("loading")?.remove();
+    if (!res.ok) throw new Error(data.error || "Request failed");
+    const meta = data.tools_used?.length
+      ? `Tools used: ${data.tools_used.join(" → ")} · ${data.mode}`
+      : data.mode || "";
+    addMessage("agent", data.answer, meta);
+  } catch (err) {
+    document.getElementById("loading")?.remove();
+    addMessage("agent", "Sorry — I couldn't complete that request. " + err.message, "Error");
+  } finally {
+    sendBtn.disabled = false;
+    sendBtn.innerHTML = "Ask Agent <span>→</span>";
+    question.focus();
+  }
+}
+
+sendBtn.addEventListener("click", askAgent);
+question.addEventListener("keydown", e => {
+  if (e.key === "Enter" && !e.shiftKey) {
+    e.preventDefault();
+    askAgent();
+  }
+});
+document.querySelectorAll(".suggestions button").forEach(btn => {
+  btn.addEventListener("click", () => {
+    question.value = btn.dataset.q;
+    askAgent();
+  });
+});
+document.getElementById("clearBtn").addEventListener("click", () => {
+  messages.innerHTML = "";
+  addMessage("agent", "Conversation cleared. What transport decision should I help with?");
+});
+</script>
+</body>
+</html>
