@@ -33,4 +33,4 @@ python app.py
 
 If using the included `.env` directly, edit `OPENAI_API_KEY`.
 
-Open http://127.0.0.1:5000
+Open (https://veda-campus-move-ai-1.onrender.com/)
